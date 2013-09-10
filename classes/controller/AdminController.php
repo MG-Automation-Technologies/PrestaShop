@@ -395,13 +395,13 @@ class AdminControllerCore extends Controller
 					if (isset($t['type']) && $t['type'] == 'bool')
 						$filter .= ((bool)$val) ? $this->l('yes') : $this->l('no');
 					elseif(is_string($val))
-						$filter .= $val;
+						$filter .= htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
 					elseif(is_array($val))
 					{
 						$tmp = '';
 						foreach($val as $v)
 							if(is_string($v) && !empty($v))
-								$tmp .= ' - '.$v;
+								$tmp .= ' - '.htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
 						if(Tools::strlen($tmp))
 						{
 							$tmp = ltrim($tmp, ' - ');
@@ -726,6 +726,8 @@ class AdminControllerCore extends Controller
 	 */
 	public function processAdd()
 	{
+		if (!isset($this->className) || empty($this->className))
+			return false;
 		/* Checking fields validity */
 		$this->validateRules();
 		if (count($this->errors) <= 0)
@@ -1142,6 +1144,8 @@ class AdminControllerCore extends Controller
 	 */
 	protected function loadObject($opt = false)
 	{
+		if (!isset($this->className) || empty($this->className))
+			return true;
 		$id = (int)Tools::getValue($this->identifier);
 		if ($id && Validate::isUnsignedId($id))
 		{
@@ -1192,6 +1196,9 @@ class AdminControllerCore extends Controller
 
 	protected function filterToField($key, $filter)
 	{
+		if (!isset($this->fields_list))
+			return false;
+
 		foreach ($this->fields_list as $field)
 			if (array_key_exists('filter_key', $field) && $field['filter_key'] == $key)
 				return $field;
@@ -1532,11 +1539,23 @@ class AdminControllerCore extends Controller
 	
 	protected function addToolBarModulesListButton()
 	{
+		if (!$this->isFresh(Module::CACHE_FILE_DEFAULT_COUNTRY_MODULES_LIST, 86400))
+			file_put_contents(_PS_ROOT_DIR_.Module::CACHE_FILE_DEFAULT_COUNTRY_MODULES_LIST, Tools::addonsRequest('native'));
+		
+		$country_module_list = file_get_contents(_PS_ROOT_DIR_.Module::CACHE_FILE_DEFAULT_COUNTRY_MODULES_LIST);
+		if (!empty($country_module_list) && $country_module_list_xml = simplexml_load_string($country_module_list))
+		{
+			$country_module_list_array = array();
+			foreach ($country_module_list_xml->module as $k => $m)
+				$country_module_list_array[] = (string)$m->name;
+			$this->tab_modules_list['slider_list'] = array_intersect($this->tab_modules_list['slider_list'], $country_module_list_array);
+		}
+		
 		if (is_array($this->tab_modules_list['slider_list']) && count($this->tab_modules_list['slider_list']))
 			$this->toolbar_btn['modules-list'] = array(
-					'href' => '#',
-					'desc' => $this->l('Modules List')
-				);
+				'href' => '#',
+				'desc' => $this->l('Modules List')
+			);
 	}
 
 	/**
@@ -1813,7 +1832,11 @@ class AdminControllerCore extends Controller
 			$this->context->employee->logout();
 
 		if ($this->controller_name != 'AdminLogin' && (!isset($this->context->employee) || !$this->context->employee->isLoggedBack()))
+		{
+			if (isset($this->context->employee))
+				$this->context->employee->logout();
 			Tools::redirectAdmin($this->context->link->getAdminLink('AdminLogin').((!isset($_GET['logout']) && $this->controller_name != 'AdminNotFound') ? '&redirect='.$this->controller_name : ''));
+		}
 
 		// Set current index
 		$current_index = 'index.php'.(($controller = Tools::getValue('controller')) ? '?controller='.$controller : '');
@@ -2149,15 +2172,14 @@ class AdminControllerCore extends Controller
 
 		/* Cache */
 		$this->_lang = (int)$id_lang;
+		$this->_orderBy = $order_by;
 
 		if (preg_match('/[.!]/', $order_by))
 		{
 			$order_by_split = preg_split('/[.!]/', $order_by);
 			$order_by = pSQL($order_by_split[0]).'.`'.pSQL($order_by_split[1]).'`';
-			$this->_orderBy = (isset($order_by_split) && isset($order_by_split[1])) ? $order_by_split[1] : $order_by;
 		}
-		else
-			$this->_orderBy = $order_by;
+
 		$this->_orderWay = Tools::strtoupper($order_way);
 
 		/* SQL table : orders, but class name is Order */
@@ -2384,7 +2406,7 @@ class AdminControllerCore extends Controller
 	public function getFieldValue($obj, $key, $id_lang = null)
 	{
 		if ($id_lang)
-			$default_value = ($obj->id && isset($obj->{$key}[$id_lang])) ? $obj->{$key}[$id_lang] : false;
+			$default_value = (isset($obj->id) && $obj->id && isset($obj->{$key}[$id_lang])) ? $obj->{$key}[$id_lang] : false;
 		else
 			$default_value = isset($obj->{$key}) ? $obj->{$key} : false;
 
@@ -2923,21 +2945,17 @@ class AdminControllerCore extends Controller
 
 	public function isFresh($file, $timeout = 604800000)
 	{
-		if (file_exists(_PS_ROOT_DIR_.$file))
-		{
-			if (filesize(_PS_ROOT_DIR_.$file) < 1)
-				return false;
+		if (file_exists(_PS_ROOT_DIR_.$file) && filesize(_PS_ROOT_DIR_.$file) > 0)
 			return ((time() - filemtime(_PS_ROOT_DIR_.$file)) < $timeout);
-		}
-		else
-			return false;
+		return false;
 	}
 
+	protected static $is_prestashop_up = true;
 	public function refresh($file_to_refresh, $external_file)
 	{
-		$content = Tools::file_get_contents($external_file);
-		if ($content)
+		if (self::$is_prestashop_up && $content = Tools::file_get_contents($external_file))
 			return (bool)file_put_contents(_PS_ROOT_DIR_.$file_to_refresh, $content);
+		self::$is_prestashop_up = false;
 		return false;
 	}
 	

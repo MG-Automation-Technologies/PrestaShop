@@ -432,7 +432,8 @@
 			};
 		{/foreach}
 		// we need allowEmployeeFormLang var in ajax request
-		allowEmployeeFormLang = {$allowEmployeeFormLang};
+		allowEmployeeFormLang = {$allowEmployeeFormLang|intval};
+		employee_token = '{getAdminToken tab='AdminEmployees'}';
 		displayFlags(languages, id_language, allowEmployeeFormLang);
 
 		$(document).ready(function() {
@@ -454,6 +455,7 @@
 				});
 
 		});
+	state_token = '{getAdminToken tab='AdminStates'}';
 	{block name="script"}{/block}
 	</script>
 {/if}
