@@ -399,10 +399,10 @@ class ValidateCore
 		$events .= '|onoffline|ononline|onpaste|onpropertychange|onreadystatechange|onresizeend|onresizestart|onrowenter|onrowexit|onrowsdelete|onrowsinserted|onscroll|onsearch|onselectionchange';
 		$events .= '|onselectstart|onstart|onstop';
 
-		if (preg_match('/<[ \t\n]*script/ims', $html) || preg_match('/('.$events.')[ \t\n]*=/ims', $html) || preg_match('/.*script\:/ims', $html))
+		if (preg_match('/<[\s]*script/ims', $html) || preg_match('/('.$events.')[\s]*=/ims', $html) || preg_match('/.*script\:/ims', $html))
 			return false;
 
-		if (!$allow_iframe && preg_match('/<[ \t\n]*(i?frame|form|input|embed|object)/ims', $html))
+		if (!$allow_iframe && preg_match('/<[\s]*(i?frame|form|input|embed|object)/ims', $html))
 			return false;
 
 		return true;
@@ -592,7 +592,7 @@ class ValidateCore
 	 */
 	public static function isOrderBy($order)
 	{
-		return preg_match('/^[a-zA-Z0-9._-]+$/', $order);
+		return preg_match('/^[a-zA-Z0-9.!_-]+$/', $order);
 	}
 
 	/**
